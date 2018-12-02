@@ -11,14 +11,17 @@ type Boltdb struct {
 	db *bolt.DB
 }
 
-func (bdb *Boltdb) Connect(path string) error {
+func (bdb *Boltdb) open(config BoltDBConfig) error {
 	var err error
-	//TODO: make the mode configurable
-	bdb.db, err = bolt.Open(path, 0600, nil)
+	mode := config.Mode
+	if mode == 0 {
+		mode = 0600
+	}
+	bdb.db, err = bolt.Open(config.Path, mode, nil)
 	return err
 }
 
-func (bdb Boltdb) Disconnect() error {
+func (bdb Boltdb) Close() error {
 	return bdb.db.Close()
 }
 

@@ -2,12 +2,14 @@ package tsdb
 
 import (
 	"fmt"
+	"os"
 	"sync"
 )
 
-const (
-	BOLTDB = iota
-)
+type BoltDBConfig struct {
+	Path string
+	Mode os.FileMode
+}
 
 type TimeEntry struct {
 	Time  int64
@@ -17,8 +19,7 @@ type TimeEntry struct {
 type TimeSeries []TimeEntry
 
 type TSDB interface {
-	//before any operation, database need to be connected
-	Connect(path string) error
+
 	//This function adds the senml records
 	Add(name string, timeseries TimeSeries) error
 
@@ -27,31 +28,25 @@ type TSDB interface {
 
 	//Returns two channels, one for Time entries and one for error.
 	//This avoids the usage of an extra buffer by the database
-	GetOnChannel(series string) (<- chan TimeEntry, chan error)
+	GetOnChannel(series string) (<-chan TimeEntry, chan error)
 
 	//Delete a complete series
 	Delete(series string) error
 
-	//Disconnect the database
-	Disconnect() error
+	//Close the database
+	Close() error
 }
 
 var ds TSDB        //will be used as a singleton db object
 var once sync.Once //make thread safe singleton
 
-func NewTSDB(storage int) (TSDB, error) {
-	var err error
-	once.Do(func() {
-		ds, err = databaseFactory(storage)
-	})
-	return ds, err
-}
-
-func databaseFactory(storage int) (TSDB, error) {
-	switch storage {
-	case BOLTDB:
-		return new(Boltdb), nil
+func Open(config interface{}) (TSDB, error) {
+	switch config.(type) {
+	case BoltDBConfig:
+		retDB := new(Boltdb)
+		err := retDB.open(config.(BoltDBConfig))
+		return retDB, err
 	default:
-		return nil, fmt.Errorf("Unsupported storage :%v", storage)
+		return nil, fmt.Errorf("Unsupported storage Configuration")
 	}
 }
