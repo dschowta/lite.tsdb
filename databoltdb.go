@@ -64,7 +64,7 @@ func (bdb Boltdb) Add(name string, timeseries TimeSeries) error {
 	return nil
 }
 
-func (bdb Boltdb) Query(q Query) (QueryResult, error) {
+func (bdb Boltdb) Query(q Query) (TimeSeries, *int64, error) {
 	timeSeries := make([]TimeEntry, 0, q.Limit)
 	var nextEntry *int64
 	nextEntry = nil
@@ -111,14 +111,77 @@ func (bdb Boltdb) Query(q Query) (QueryResult, error) {
 	})
 
 	if err != nil {
-		return QueryResult{}, err
+		return TimeSeries{}, nil, err
 	}
 
-	return QueryResult{Series: timeSeries, NextEntry: nextEntry}, nil
+	return timeSeries, nextEntry, nil
 }
 
-func (bdb Boltdb) GetPages(q Query) ([]int64, error) {
+func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan error) {
+	resultCh := make(chan TimeEntry, 10)
+	errorCh := make(chan error)
+	nextEntryChan := make(chan *int64)
+
+	go func() {
+		var nextEntry *int64
+		err := bdb.db.View(func(tx *bolt.Tx) error {
+
+			b := tx.Bucket([]byte(q.Series))
+			if b == nil {
+				return fmt.Errorf("Bucket:%v does not exist", q.Series)
+			}
+
+			c := b.Cursor()
+
+			//Default case : If the sorting is descending
+			first := q.End
+			last := q.Start
+			next := c.Prev
+			loopCondition := func(val int64, last int64) bool {
+				return val >= last
+			}
+			//else
+			if strings.Compare(q.Sort, ASC) == 0 {
+				first = q.Start
+				last = q.End
+				next = c.Next
+				loopCondition = func(val int64, last int64) bool {
+					return val <= last
+				}
+
+			}
+
+			count := 0
+			// Iterate over the time values
+			var k, v []byte
+			for k, v = c.Seek(timeToByteArr(first)); k != nil && loopCondition(byteArrToTime(k), last) && count < q.Limit; k, v = next() {
+				record := TimeEntry{byteArrToTime(k), v}
+				resultCh <- record
+				count = count + 1
+			}
+			if count == q.Limit && k != nil && loopCondition(byteArrToTime(k), last) {
+				ne := byteArrToTime(k)
+				nextEntry = &ne
+			}
+			return nil
+		})
+
+		//make sure you close the resultchannel before error channel
+		close(resultCh)
+		nextEntryChan <- nextEntry
+
+		if err != nil {
+			errorCh <- err
+		}
+		close(errorCh)
+	}()
+
+	return resultCh, nextEntryChan, errorCh
+}
+
+func (bdb Boltdb) GetPages(q Query) ([]int64, int, error) {
 	keyList := make([]int64, 0, 100)
+	count := 0
 
 	err := bdb.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(q.Series))
@@ -146,22 +209,20 @@ func (bdb Boltdb) GetPages(q Query) ([]int64, error) {
 
 		// Iterate over the time values
 		var k []byte
-		count := 0
 
 		for k, _ = c.Seek(timeToByteArr(first)); k != nil && loopCondition(byteArrToTime(k), last); k, _ = next() {
-			if count == 0 {
-				count = 0
+			if count%q.Limit == 0 {
 				keyList = append(keyList, byteArrToTime(k))
 			}
-			count = (count + 1) % q.Limit
+			count = count + 1
 		}
 		return nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return keyList, nil
+	return keyList, count, nil
 }
 
 func (bdb Boltdb) Get(series string) (TimeSeries, error) {

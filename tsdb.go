@@ -32,16 +32,9 @@ type Query struct {
 	//DESC: The time Series will have the latest  data first.
 	Sort string
 
-	//Number of entries to be returned per request. This is used for pagination. The next sequence is found out using NextEntry function
+	//Number of entries to be returned per page. This is used for pagination.
+	// The next sequence is found out using NextEntry variable of a query response.
 	Limit int
-}
-
-type QueryResult struct {
-	Series TimeSeries
-
-	//Next entry to be accessed. If the list is ascending (older data first) , then this is a start time.
-	//On the other hand, if the list is descending (newer data first), this will have endTime.
-	NextEntry *int64
 }
 
 type TimeSeries []TimeEntry
@@ -52,11 +45,12 @@ type TSDB interface {
 	Add(name string, timeseries TimeSeries) error
 
 	//Get the senml records
-	Query(q Query) (QueryResult, error)
+	Query(q Query) (TimeSeries, *int64, error)
 
+	QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan error)
 	//Get the total pages for a particular query.
 	// This helps for any client to call multiple queries
-	GetPages(q Query) ([]int64, error)
+	GetPages(q Query) ([]int64, int, error)
 
 	//Get the senml records
 	Get(series string) (TimeSeries, error)
