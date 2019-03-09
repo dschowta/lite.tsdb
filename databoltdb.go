@@ -132,16 +132,23 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 			}
 
 			c := b.Cursor()
-
-			//Default case : If the sorting is descending
-			first := q.End
-			last := q.Start
-			next := c.Prev
-			loopCondition := func(val int64, last int64) bool {
-				return val >= last
-			}
-			//else
-			if strings.Compare(q.Sort, ASC) == 0 {
+			var first, last int64
+			var next func() ([]byte, []byte)
+			var loopCondition func(val int64, last int64) bool
+			var k, v []byte
+			if q.Sort == DESC {
+				//Default case : If the sorting is descending
+				first = q.End
+				last = q.Start
+				next = c.Prev
+				loopCondition = func(val int64, last int64) bool {
+					return val >= last
+				}
+				k, v = c.Seek(timeToByteArr(first))
+				if k == nil { //if the seek value is beyond the last entry then go to the last entry
+					k, v = c.Last()
+				}
+			} else {
 				first = q.Start
 				last = q.End
 				next = c.Next
@@ -149,12 +156,12 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 					return val <= last
 				}
 
+				k, v = c.Seek(timeToByteArr(first))
 			}
 
-			count := 0
+			count := 1
 			// Iterate over the time values
-			var k, v []byte
-			for k, v = c.Seek(timeToByteArr(first)); k != nil && loopCondition(byteArrToTime(k), last) && count < q.Limit; k, v = next() {
+			for ; k != nil && loopCondition(byteArrToTime(k), last) && count != q.Limit; k, v = next() {
 				record := TimeEntry{byteArrToTime(k), v}
 				resultCh <- record
 				count = count + 1
