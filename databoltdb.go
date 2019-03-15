@@ -159,7 +159,7 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 				k, v = c.Seek(timeToByteArr(first))
 			}
 
-			count := 1
+			count := 0
 			// Iterate over the time values
 			for ; k != nil && loopCondition(byteArrToTime(k), last) && count != q.Limit; k, v = next() {
 				record := TimeEntry{byteArrToTime(k), v}
