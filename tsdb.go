@@ -45,19 +45,19 @@ type TSDB interface {
 	Add(name string, timeseries TimeSeries) error
 
 	//Get the senml records
-	Query(q Query) (TimeSeries, *int64, error)
+	Query(q Query) (timeSeries TimeSeries, nextEntry *int64, err error)
 
-	QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan error)
+	QueryOnChannel(q Query) (timeseries <-chan TimeEntry, nextEntry chan *int64, err chan error)
 	//Get the total pages for a particular query.
 	// This helps for any client to call multiple queries
-	GetPages(q Query) ([]int64, int, error)
+	GetPages(q Query) (seriesList []int64, count int, err error)
 
 	//Get the senml records
-	Get(series string) (TimeSeries, error)
+	Get(series string) (timeSeries TimeSeries, err error)
 	//Returns two channels, one for Time entries and one for error.
 	//This avoids the usage of an extra buffer by the database
 	//Caution: first read the channel and then read the error. Error channel shall be written only after the timeseries channel is closed
-	GetOnChannel(series string) (<-chan TimeEntry, chan error)
+	GetOnChannel(series string) (timeseries <-chan TimeEntry, err chan error)
 
 	//Delete a complete Series
 	Delete(series string) error

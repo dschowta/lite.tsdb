@@ -64,11 +64,11 @@ func (bdb Boltdb) Add(name string, timeseries TimeSeries) error {
 	return nil
 }
 
-func (bdb Boltdb) Query(q Query) (TimeSeries, *int64, error) {
-	timeSeries := make([]TimeEntry, 0, q.Limit)
-	var nextEntry *int64
+func (bdb Boltdb) Query(q Query) (timeSeries TimeSeries, nextEntry *int64, err error) {
+	timeSeries = make([]TimeEntry, 0, q.Limit)
+
 	nextEntry = nil
-	err := bdb.db.View(func(tx *bolt.Tx) error {
+	err = bdb.db.View(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket([]byte(q.Series))
 		if b == nil {
@@ -298,6 +298,10 @@ func (bdb Boltdb) GetOnChannel(series string) (<-chan TimeEntry, chan error) {
 
 func (bdb Boltdb) Delete(series string) error {
 	return bdb.db.Update(func(tx *bolt.Tx) error {
-		return tx.DeleteBucket([]byte(series))
+		err := tx.DeleteBucket([]byte(series))
+		if err == bolt.ErrBucketNotFound {
+			return ErrSeriesNotFound
+		}
+		return err
 	})
 }
