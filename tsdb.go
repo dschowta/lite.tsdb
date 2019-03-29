@@ -34,7 +34,7 @@ type Query struct {
 
 	//Number of entries to be returned per page. This is used for pagination.
 	// The next sequence is found out using NextEntry variable of a query response.
-	Limit int
+	MaxEntries int
 }
 
 type TimeSeries []TimeEntry

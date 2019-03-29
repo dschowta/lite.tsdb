@@ -67,7 +67,7 @@ func (bdb Boltdb) Add(name string, timeseries TimeSeries) error {
 }
 
 func (bdb Boltdb) Query(q Query) (timeSeries TimeSeries, nextEntry *int64, err error) {
-	timeSeries = make([]TimeEntry, 0, q.Limit)
+	timeSeries = make([]TimeEntry, 0, q.MaxEntries)
 
 	nextEntry = nil
 	err = bdb.db.View(func(tx *bolt.Tx) error {
@@ -100,12 +100,12 @@ func (bdb Boltdb) Query(q Query) (timeSeries TimeSeries, nextEntry *int64, err e
 		count := 0
 		// Iterate over the time values
 		var k, v []byte
-		for k, v = c.Seek(timeToByteArr(first)); k != nil && loopCondition(byteArrToTime(k), last) && count < q.Limit; k, v = next() {
+		for k, v = c.Seek(timeToByteArr(first)); k != nil && loopCondition(byteArrToTime(k), last) && count < q.MaxEntries; k, v = next() {
 			record := TimeEntry{byteArrToTime(k), v}
 			timeSeries = append(timeSeries, record)
 			count = count + 1
 		}
-		if count == q.Limit && k != nil && loopCondition(byteArrToTime(k), last) {
+		if count == q.MaxEntries && k != nil && loopCondition(byteArrToTime(k), last) {
 			ne := byteArrToTime(k)
 			nextEntry = &ne
 		}
@@ -143,12 +143,12 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 
 				start := timeToByteArr(q.Start)
 				// Iterate over the time values
-				for ; k != nil && bytes.Compare(k, start) >= 0 && count != q.Limit; k, v = c.Prev() {
+				for ; k != nil && bytes.Compare(k, start) >= 0 && count != q.MaxEntries; k, v = c.Prev() {
 					record := TimeEntry{byteArrToTime(k), v}
 					resultCh <- record
 					count++
 				}
-				if count == q.Limit && k != nil && bytes.Compare(k, start) >= 0 {
+				if count == q.MaxEntries && k != nil && bytes.Compare(k, start) >= 0 {
 					ne := byteArrToTime(k)
 					nextEntry = &ne
 				}
@@ -156,12 +156,12 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 				k, v := c.Seek(timeToByteArr(q.Start))
 				last := timeToByteArr(q.End)
 				// Iterate over the time values
-				for ; k != nil && bytes.Compare(k, last) <= 0 && count != q.Limit; k, v = c.Next() {
+				for ; k != nil && bytes.Compare(k, last) <= 0 && count != q.MaxEntries; k, v = c.Next() {
 					record := TimeEntry{byteArrToTime(k), v}
 					resultCh <- record
 					count = count + 1
 				}
-				if count == q.Limit && k != nil && bytes.Compare(k, last) <= 0 {
+				if count == q.MaxEntries && k != nil && bytes.Compare(k, last) <= 0 {
 					ne := byteArrToTime(k)
 					nextEntry = &ne
 				}
@@ -215,7 +215,7 @@ func (bdb Boltdb) GetPages(q Query) ([]int64, int, error) {
 		var k []byte
 
 		for k, _ = c.Seek(timeToByteArr(first)); k != nil && loopCondition(byteArrToTime(k), last); k, _ = next() {
-			if count%q.Limit == 0 {
+			if count%q.MaxEntries == 0 {
 				keyList = append(keyList, byteArrToTime(k))
 			}
 			count = count + 1
