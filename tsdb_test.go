@@ -43,7 +43,7 @@ func TestTsdb_Add(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	query := Query{Series: tname, Limit: 100, Start: series[0].Time, End: series[len(series)-1].Time, Sort: ASC}
+	query := Query{Series: tname, MaxEntries: 100, Start: series[0].Time, End: series[len(series)-1].Time, Sort: ASC}
 	resSeries, nextEntry, err := db.Query(query)
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestTsdb_CheckDescending(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	query := Query{Series: tname, Limit: 100, Start: series[0].Time, End: series[len(series)-1].Time, Sort: DESC}
+	query := Query{Series: tname, MaxEntries: 100, Start: series[0].Time, End: series[len(series)-1].Time, Sort: DESC}
 	resSeries, nextEntry, err := db.Query(query)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestTsdb_QueryPagination(t *testing.T) {
 	series := createDummyRecords(100, false)
 	err = db.Add(tname, series)
 
-	query := Query{Series: tname, Limit: 50, Start: series[0].Time, End: series[len(series)-1].Time, Sort: ASC}
+	query := Query{Series: tname, MaxEntries: 50, Start: series[0].Time, End: series[len(series)-1].Time, Sort: ASC}
 	resSeries, nextEntry, err := db.Query(query)
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestTsdb_QueryPagination(t *testing.T) {
 	if nextEntry == nil {
 		t.Error("nextEntry is null")
 	}
-	query = Query{Series: tname, Limit: 50, Start: *nextEntry, End: series[len(series)-1].Time, Sort: ASC}
+	query = Query{Series: tname, MaxEntries: 50, Start: *nextEntry, End: series[len(series)-1].Time, Sort: ASC}
 	resSeries, nextEntry, err = db.Query(query)
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +143,7 @@ func TestTsdb_QueryPages(t *testing.T) {
 	series := createDummyRecords(count, false)
 	err = db.Add(tname, series)
 
-	query := Query{Series: tname, Limit: limit, Start: series[0].Time, End: series[len(series)-1].Time, Sort: ASC}
+	query := Query{Series: tname, MaxEntries: limit, Start: series[0].Time, End: series[len(series)-1].Time, Sort: ASC}
 	pages, retCount, err := db.GetPages(query)
 	if err != nil {
 		t.Fatal(err)
