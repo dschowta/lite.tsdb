@@ -24,8 +24,8 @@ type TimeEntry struct {
 type Query struct {
 	Series string
 
-	Start int64
-	End   int64
+	From int64
+	To   int64
 	//Sorting order:
 	//Possible values are ASC and DESC
 	//ASC : The time Series will have the oldest data first

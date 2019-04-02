@@ -80,16 +80,16 @@ func (bdb Boltdb) Query(q Query) (timeSeries TimeSeries, nextEntry *int64, err e
 		c := b.Cursor()
 
 		//Default case : If the sorting is descending
-		first := q.End
-		last := q.Start
+		first := q.To
+		last := q.From
 		next := c.Prev
 		loopCondition := func(val int64, last int64) bool {
 			return val >= last
 		}
 		//else
 		if strings.Compare(q.Sort, ASC) == 0 {
-			first = q.Start
-			last = q.End
+			first = q.From
+			last = q.To
 			next = c.Next
 			loopCondition = func(val int64, last int64) bool {
 				return val <= last
@@ -136,12 +136,12 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 			c := b.Cursor()
 			count := 0
 			if q.Sort == DESC {
-				k, v := c.Seek(timeToByteArr(q.End))
+				k, v := c.Seek(timeToByteArr(q.To))
 				if k == nil { //if the seek value is beyond the last entry then go to the last entry
 					k, v = c.Last()
 				}
 
-				start := timeToByteArr(q.Start)
+				start := timeToByteArr(q.From)
 				// Iterate over the time values
 				for ; k != nil && bytes.Compare(k, start) >= 0 && count != q.MaxEntries; k, v = c.Prev() {
 					record := TimeEntry{byteArrToTime(k), v}
@@ -153,8 +153,8 @@ func (bdb Boltdb) QueryOnChannel(q Query) (<-chan TimeEntry, chan *int64, chan e
 					nextEntry = &ne
 				}
 			} else {
-				k, v := c.Seek(timeToByteArr(q.Start))
-				last := timeToByteArr(q.End)
+				k, v := c.Seek(timeToByteArr(q.From))
+				last := timeToByteArr(q.To)
 				// Iterate over the time values
 				for ; k != nil && bytes.Compare(k, last) <= 0 && count != q.MaxEntries; k, v = c.Next() {
 					record := TimeEntry{byteArrToTime(k), v}
@@ -195,15 +195,15 @@ func (bdb Boltdb) GetPages(q Query) ([]int64, int, error) {
 
 		c := b.Cursor()
 
-		first := q.End
-		last := q.Start
+		first := q.To
+		last := q.From
 		next := c.Prev
 		loopCondition := func(val int64, last int64) bool {
 			return val >= last
 		}
 		if strings.Compare(q.Sort, ASC) == 0 {
-			first = q.Start
-			last = q.End
+			first = q.From
+			last = q.To
 			next = c.Next
 			loopCondition = func(val int64, last int64) bool {
 				return val <= last
