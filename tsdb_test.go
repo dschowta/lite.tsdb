@@ -57,6 +57,24 @@ func TestTsdb_Add(t *testing.T) {
 	}
 }
 
+func TestBoltdb_Create(t *testing.T) {
+	tname := "TestBoltdb_Create"
+	db, filePath, err := setupDB(tname)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer clean(db, filePath)
+
+	err = db.Create(tname)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	err = db.Create(tname)
+	if err == nil {
+		t.Error("Duplicate Buckets are allowed")
+	}
+}
 func TestTsdb_CheckDescending(t *testing.T) {
 	tname := "TestTsdb_CheckDescending"
 	db, filePath, err := setupDB(tname)
